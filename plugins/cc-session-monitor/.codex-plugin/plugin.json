@@ -1,0 +1,33 @@
+{
+  "name": "cc-session-monitor",
+  "version": "0.1.0+codex.20260920094652",
+  "description": "Dispatch, resume, and monitor Claude Code sessions from Codex.",
+  "author": {
+    "name": "Sunxt"
+  },
+  "license": "MIT",
+  "keywords": [
+    "claude-code",
+    "deepseek",
+    "monitor",
+    "mcp"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "CC Session Monitor",
+    "shortDescription": "Run and monitor Claude Code sessions from Codex.",
+    "longDescription": "Dispatch work to Claude Code, stream text and tool activity, resume existing sessions, and keep durable execution history.",
+    "developerName": "Sunxt",
+    "category": "Productivity",
+    "capabilities": [
+      "Interactive",
+      "Write"
+    ],
+    "defaultPrompt": [
+      "Delegate this implementation to Claude Code and show its progress.",
+      "Open the Claude Code session monitor.",
+      "Resume the latest Claude Code session for this project."
+    ]
+  },
+  "mcpServers": "./.mcp.json"
+}

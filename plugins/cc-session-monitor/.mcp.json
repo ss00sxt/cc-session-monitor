@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "cc-session-monitor": {
+      "command": "node",
+      "args": ["${PLUGIN_ROOT}/src/server.js"]
+    }
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "name": "cc-session-monitor",
+  "version": "0.1.0",
+  "description": "Codex plugin for dispatching and monitoring Claude Code sessions.",
+  "type": "module",
+  "bin": {
+    "cc-session-monitor": "src/server.js",
+    "cc-session-monitor-daemon": "src/daemon.js"
+  },
+  "scripts": {
+    "check": "node --check src/server.js && node --check src/daemon.js && node --check src/runner.js && node --check src/store.js && node --check src/service.js && node --check src/ui.js",
+    "test": "node --test",
+    "start": "node src/server.js",
+    "daemon": "node src/daemon.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "license": "MIT",
+  "keywords": ["codex", "claude-code", "mcp", "agent-monitor"]
+}
