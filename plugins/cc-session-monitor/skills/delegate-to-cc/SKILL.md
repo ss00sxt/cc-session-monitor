@@ -12,7 +12,7 @@ session continuity.
 ## Start work
 
 1. Plan the task in Codex and identify the exact working directory.
-2. Create a Chinese task summary no longer than 20 characters.
+2. Create a task summary in the user's current language, no longer than 20 Unicode characters.
 3. Call `cc_dispatch` with `prompt`, `summary`, and the absolute `cwd`.
 4. Tell the user the task was dispatched and include the returned session ID.
 5. Do not continuously poll. The tray UI and daemon update independently.

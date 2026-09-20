@@ -9,11 +9,17 @@ test("MCP server advertises monitor tools and UI resource", async () => {
 
   const listed = await handleRequest({ id: 2, method: "tools/list" });
   assert.ok(listed.result.tools.some((tool) => tool.name === "cc_dispatch"));
-  assert.equal(listed.result.tools.find((tool) => tool.name === "cc_dispatch")._meta.ui.resourceUri, "ui://cc-session-monitor/monitor.html");
+  const dispatch = listed.result.tools.find((tool) => tool.name === "cc_dispatch");
+  assert.equal(dispatch._meta.ui.resourceUri, "ui://cc-session-monitor/monitor.html");
+  assert.equal(dispatch.title, "Dispatch a Claude Code task");
+  assert.equal(listed.result.tools.find((tool) => tool.name === "cc_update_settings").inputSchema.properties.language.default, "en");
 
   const resource = await handleRequest({ id: 3, method: "resources/read", params: { uri: "ui://cc-session-monitor/monitor.html" } });
   assert.equal(resource.result.contents[0].mimeType, "text/html;profile=mcp-app");
   assert.match(resource.result.contents[0].text, /CC Session Monitor/);
+  assert.match(resource.result.contents[0].text, /<html lang="en">/);
+  assert.match(resource.result.contents[0].text, /language='en'/);
+  assert.match(resource.result.contents[0].text, /<option value="en">English<\/option><option value="zh-CN">简体中文<\/option>/);
   assert.match(resource.result.contents[0].text, /after_seq:state\.lastSeq/);
   assert.match(resource.result.contents[0].text, /模型思考中/);
   assert.match(resource.result.contents[0].text, /English/);

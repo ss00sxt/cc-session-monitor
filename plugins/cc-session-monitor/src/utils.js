@@ -10,7 +10,7 @@ export function nowIso() {
 }
 
 export function truncateSummary(value, max = 20) {
-  const normalized = String(value ?? "").replace(/\s+/g, " ").trim() || "Claude Code 任务";
+  const normalized = String(value ?? "").replace(/\s+/g, " ").trim() || "Claude Code task";
   const chars = Array.from(normalized);
   if (chars.length <= max) return normalized;
   if (max <= 1) return "…".slice(0, Math.max(0, max));

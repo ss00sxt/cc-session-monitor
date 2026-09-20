@@ -122,7 +122,7 @@ class MonitorWindow(Gtk.Window):
         self.client = client
         self.selected_id = None
         self.sessions = []
-        self.language = "zh-CN"
+        self.language = "en"
         self.language_initialized = False
         self.rows = {}
         self.detail_session_id = None
@@ -183,10 +183,10 @@ class MonitorWindow(Gtk.Window):
         buttons.pack_start(self.dismiss_button, False, False, 0)
         buttons.pack_end(self.dashboard_button, False, False, 0)
         root.pack_start(buttons, False, False, 0)
-        self.set_language("zh-CN")
+        self.set_language("en")
 
     def t(self, key):
-        return TEXT.get(self.language, TEXT["zh-CN"]).get(key, key)
+        return TEXT.get(self.language, TEXT["en"]).get(key, key)
 
     @staticmethod
     def _install_styles():
@@ -212,7 +212,7 @@ class MonitorWindow(Gtk.Window):
         )
 
     def set_language(self, language):
-        language = language if language in TEXT else "zh-CN"
+        language = language if language in TEXT else "en"
         if language == self.language and self.language_initialized:
             return
         changed = self.language_initialized and language != self.language
@@ -238,7 +238,7 @@ class MonitorWindow(Gtk.Window):
     def refresh(self):
         try:
             snapshot = self.client.sessions()
-            self.set_language(snapshot.get("settings", {}).get("language", "zh-CN"))
+            self.set_language(snapshot.get("settings", {}).get("language", "en"))
             self.sessions = snapshot.get("sessions", [])
         except Exception as error:  # UI must stay alive while daemon restarts.
             self._clear_detail()
@@ -257,7 +257,7 @@ class MonitorWindow(Gtk.Window):
                 self.rows[session_id] = row
                 self.list_box.add(row)
             row.sort_key = session.get("updatedAt", "")
-            row.summary_label.set_text(session.get("summary", "Claude Code 任务"))
+            row.summary_label.set_text(session.get("summary", "Claude Code task"))
             row.status_label.set_text(self.t(session.get("status", "")))
             row.elapsed_label.set_text(format_elapsed(session))
         self.list_box.invalidate_sort()
@@ -698,7 +698,7 @@ class TrayApplication:
     def __init__(self, data_dir: Path, plugin_root: Path):
         self.data_dir = data_dir
         self.client = MonitorClient(data_dir)
-        self.language = "zh-CN"
+        self.language = "en"
         self.updating_language = False
         self.assets = plugin_root / "assets"
         self.window = MonitorWindow(self.client)
@@ -721,18 +721,18 @@ class TrayApplication:
         self.menu.append(self.dashboard_item)
         self.language_item = Gtk.MenuItem()
         language_menu = Gtk.Menu()
-        self.zh_item = Gtk.RadioMenuItem.new_with_label(None, "中文")
-        self.en_item = Gtk.RadioMenuItem.new_with_label_from_widget(self.zh_item, "English")
+        self.en_item = Gtk.RadioMenuItem.new_with_label(None, "English")
+        self.zh_item = Gtk.RadioMenuItem.new_with_label_from_widget(self.en_item, "简体中文")
         self.zh_item.connect("toggled", self._language_changed, "zh-CN")
         self.en_item.connect("toggled", self._language_changed, "en")
-        language_menu.append(self.zh_item)
         language_menu.append(self.en_item)
+        language_menu.append(self.zh_item)
         self.language_item.set_submenu(language_menu)
         self.menu.append(self.language_item)
         self.quit_item = Gtk.MenuItem()
         self.quit_item.connect("activate", lambda *_: Gtk.main_quit())
         self.menu.append(self.quit_item)
-        self.set_language("zh-CN")
+        self.set_language("en")
         self.menu.show_all()
         self.indicator.set_menu(self.menu)
         GLib.timeout_add_seconds(1, self.refresh)
@@ -741,7 +741,7 @@ class TrayApplication:
     def refresh(self):
         try:
             snapshot = self.client.sessions()
-            self.set_language(snapshot.get("settings", {}).get("language", "zh-CN"))
+            self.set_language(snapshot.get("settings", {}).get("language", "en"))
             sessions = snapshot.get("sessions", [])
         except Exception:
             self.indicator.set_icon_full(str(self.assets / "tray-error.svg"), self.t("connection_failed"))
@@ -776,10 +776,10 @@ class TrayApplication:
         self.window.present_top_right(item.session_id)
 
     def t(self, key):
-        return TEXT.get(self.language, TEXT["zh-CN"]).get(key, key)
+        return TEXT.get(self.language, TEXT["en"]).get(key, key)
 
     def set_language(self, language):
-        language = language if language in TEXT else "zh-CN"
+        language = language if language in TEXT else "en"
         self.language = language
         self.open_item.set_label(self.t("open"))
         self.dashboard_item.set_label(self.t("dashboard"))

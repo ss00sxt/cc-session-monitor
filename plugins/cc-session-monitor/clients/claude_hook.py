@@ -21,7 +21,7 @@ DATA_DIR = Path(os.environ.get("CC_MONITOR_DATA_DIR", Path.home() / ".local/stat
 def summarize(prompt: str) -> str:
     text = re.sub(r"\s+", " ", prompt or "").strip()
     text = re.sub(r"^[/#]+", "", text).strip()
-    chars = list(text or "本地 Claude Code 会话")
+    chars = list(text or "Local Claude session")
     return "".join(chars if len(chars) <= 20 else chars[:19] + ["…"])
 
 
@@ -29,7 +29,7 @@ def event_from_hook(payload: dict) -> dict:
     name = payload.get("hook_event_name", "")
     data: dict = {"cwd": payload.get("cwd"), "transcriptPath": payload.get("transcript_path")}
     if name == "SessionStart":
-        data.update({"summary": payload.get("session_title") or f"{Path(payload.get('cwd') or '.').name} CC会话", "model": payload.get("model"), "source": payload.get("source")})
+        data.update({"summary": payload.get("session_title") or f"{Path(payload.get('cwd') or '.').name} CC session", "model": payload.get("model"), "source": payload.get("source")})
     elif name == "UserPromptSubmit":
         data.update({"summary": summarize(payload.get("prompt", "")), "prompt": payload.get("prompt", "")})
     elif name == "MessageDisplay":

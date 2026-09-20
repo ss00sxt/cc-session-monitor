@@ -5,13 +5,13 @@ import { ClaudeRunner } from "./runner.js";
 import { atomicWriteJson, readJson } from "./utils.js";
 
 const PERMISSION_MODES = new Set(["acceptEdits", "auto", "dontAsk", "manual", "plan"]);
-const LANGUAGES = new Set(["zh-CN", "en"]);
+const LANGUAGES = new Set(["en", "zh-CN"]);
 
 export class MonitorService {
   constructor({ dataDir, runnerOptions = {} }) {
     this.store = new EventStore(dataDir);
     this.settingsPath = join(dataDir, "settings.json");
-    this.settings = { language: "zh-CN" };
+    this.settings = { language: "en" };
     this.runnerOptions = runnerOptions;
     this.runner = null;
   }
@@ -54,7 +54,7 @@ export class MonitorService {
   }
 
   async updateSettings(params) {
-    if (!LANGUAGES.has(params.language)) throw new Error("language must be zh-CN or en");
+    if (!LANGUAGES.has(params.language)) throw new Error("language must be en or zh-CN");
     this.settings = { ...this.settings, language: params.language };
     await atomicWriteJson(this.settingsPath, this.settings);
     return { settings: { ...this.settings } };

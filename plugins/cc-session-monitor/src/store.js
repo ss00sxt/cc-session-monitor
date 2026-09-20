@@ -169,7 +169,7 @@ export class EventStore {
         break;
       case "permission_requested":
         session.status = "waiting_permission";
-        session.activeToolSummary = bounded(data.summary ?? "等待权限确认", 500);
+        session.activeToolSummary = bounded(data.summary ?? "Waiting for permission", 500);
         break;
       case "progress_snapshot":
         if (data.output) session.lastOutput = bounded(data.output, 4_000);

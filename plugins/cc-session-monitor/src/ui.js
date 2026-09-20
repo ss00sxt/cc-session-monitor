@@ -3,7 +3,7 @@ const TERMINAL = ["completed", "failed", "cancelled", "orphaned"];
 export function renderMonitorHtml({ mode = "mcp", token = "" } = {}) {
   const adapter = mode === "dashboard" ? dashboardAdapter(token) : mcpAdapter();
   return `<!doctype html>
-<html lang="zh-CN">
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -15,15 +15,15 @@ export function renderMonitorHtml({ mode = "mcp", token = "" } = {}) {
     @media(prefers-color-scheme:light){:root{--card:#f8fafc;--surface:#f8fafc;--muted:#64748b;--line:#e2e8f0;--prompt-bg:#eaf8f0;--prompt-line:#9bd6b4;--tool-bg:#eef6ff;--tool-line:#c79400;--answer-bg:#fff;--code-bg:#f1f5f9}body{color:#0f172a}.close:hover{color:#0f172a}.session-id{background:#0f172a;color:#f8fafc}.row:hover .session-card,.row:focus-within .session-card{box-shadow:0 8px 20px #0f172a24}}
   </style>
 </head>
-<body><div id="app" class="monitor"><div class="head"><div class="title">CC Session Monitor</div><div class="head-right"><div id="meta" class="meta"></div><select id="language" class="language" aria-label="Language"><option value="zh-CN">中文</option><option value="en">English</option></select></div></div><div id="rows"></div><div id="empty" class="empty" hidden></div></div>
+<body><div id="app" class="monitor"><div class="head"><div class="title">CC Session Monitor</div><div class="head-right"><div id="meta" class="meta"></div><select id="language" class="language" aria-label="Language"><option value="en">English</option><option value="zh-CN">简体中文</option></select></div></div><div id="rows"></div><div id="empty" class="empty" hidden></div></div>
 <script>
 ${adapter}
 const terminal=new Set(${JSON.stringify(TERMINAL)});
 const i18n={'zh-CN':{sessions:'个会话',empty:'还没有 Claude Code 任务',close:'关闭并隐藏',connectionFailed:'连接失败',instruction:'提示词',tool:'工具',result:'结果',error:'错误',status:'状态',progress:'进度',event:'事件',cancelledText:'任务已取消',failedText:'任务执行失败',finishedText:'已完成',thinking:'模型思考中',waitingOutput:'尚无新输出',starting:'启动中',running:'执行中',generating:'生成中',tool_running:'调用工具',waiting_permission:'等待权限',cancelling:'取消中',idle:'等待输入',idle_error:'本轮失败',completed:'已完成',failed:'失败',cancelled:'已取消',orphaned:'失联'},en:{sessions:'sessions',empty:'No Claude Code sessions yet',close:'Dismiss',connectionFailed:'Connection failed',instruction:'Prompt',tool:'Tool',result:'Result',error:'Error',status:'Status',progress:'Progress',event:'Event',cancelledText:'Task cancelled',failedText:'Task failed',finishedText:'finished',thinking:'Model is thinking',waitingOutput:'no new output yet',starting:'Starting',running:'Running',generating:'Generating',tool_running:'Using tool',waiting_permission:'Waiting for permission',cancelling:'Cancelling',idle:'Waiting for input',idle_error:'Turn failed',completed:'Completed',failed:'Failed',cancelled:'Cancelled',orphaned:'Disconnected'}};
 const hiddenEvents=new Set(['external_session_started','external_turn_completed','external_session_ended','session_initialized','run_started','run_completed','model_status','hook_event']);
-let snapshot={revision:0,lastSeq:0,sessions:[]};let openId=null;let busy=false;let language='zh-CN';
+let snapshot={revision:0,lastSeq:0,sessions:[]};let openId=null;let busy=false;let language='en';
 const views=new Map();const rowsEl=document.getElementById('rows');const emptyEl=document.getElementById('empty');const metaEl=document.getElementById('meta');const languageEl=document.getElementById('language');
-function t(key){return (i18n[language]||i18n['zh-CN'])[key]||key}
+function t(key){return (i18n[language]||i18n.en)[key]||key}
 function elapsed(s){const end=s.completedAt?Date.parse(s.completedAt):Date.now();const n=Math.max(0,Math.floor((end-Date.parse(s.startedAt))/1000));const h=Math.floor(n/3600),m=Math.floor(n%3600/60),sec=n%60;return h?String(h)+':'+String(m).padStart(2,'0')+':'+String(sec).padStart(2,'0'):String(m).padStart(2,'0')+':'+String(sec).padStart(2,'0')}
 function since(value){const n=Math.max(0,Math.floor((Date.now()-Date.parse(value))/1000));const m=Math.floor(n/60),sec=n%60;return String(m).padStart(2,'0')+':'+String(sec).padStart(2,'0')}
 function activityText(s){if(s.activeTool)return (s.activeTool||t('tool'))+(s.activeToolSummary?' · '+s.activeToolSummary:'');if(s.status==='generating')return t('thinking')+' · '+since(s.updatedAt)+' · '+t('waitingOutput');if(s.status==='waiting_permission')return t('waiting_permission')+(s.activeToolSummary?' · '+s.activeToolSummary:'');return ''}
@@ -40,7 +40,7 @@ const resultIcon='<svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path
 function stamp(e){return new Date(e.timestamp).toLocaleTimeString([],{hour12:false})}
 function setMarkdown(el,text){el.innerHTML=renderMarkdown(text)}
 function activateOnKeyboard(el,callback){el.tabIndex=0;el.setAttribute('role','button');el.addEventListener('keydown',event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();callback(event)}})}
-function createView(s){const row=document.createElement('div');row.className='row';row.dataset.id=s.sessionId;row.innerHTML='<div class="session-card"><div class="main"><span class="dot"></span><span class="summary"></span><span class="status"></span><span class="elapsed"></span><button class="close" title="关闭并隐藏">×</button></div><div class="details"><div class="current"></div><div class="events"></div></div></div><div class="session-id"></div>';
+function createView(s){const row=document.createElement('div');row.className='row';row.dataset.id=s.sessionId;row.innerHTML='<div class="session-card"><div class="main"><span class="dot"></span><span class="summary"></span><span class="status"></span><span class="elapsed"></span><button class="close" title="Dismiss">×</button></div><div class="details"><div class="current"></div><div class="events"></div></div></div><div class="session-id"></div>';
   const view={row,summary:row.querySelector('.summary'),status:row.querySelector('.status'),elapsed:row.querySelector('.elapsed'),close:row.querySelector('.close'),sessionId:row.querySelector('.session-id'),details:row.querySelector('.details'),current:row.querySelector('.current'),events:row.querySelector('.events'),state:{lastSeq:0,lastOutputText:'',lastOutputEl:null,lastOutputMode:'',loading:false,tools:new Map(),pendingTools:[],toolCounter:0}};
   row.querySelector('.main').addEventListener('click',async()=>{openId=openId===s.sessionId?null:s.sessionId;syncOpenRows();if(openId)await loadEvents(openId)});
   view.close.addEventListener('click',async event=>{event.stopPropagation();await api('cc_dismiss',{session_id:s.sessionId});if(openId===s.sessionId)openId=null;await refresh()});
@@ -72,7 +72,7 @@ async function api(method,params){const r=await fetch('/api/rpc',{method:'POST',
 function mcpAdapter() {
   return `let bridgeSeq=1;const pending=new Map();
 window.addEventListener('message',event=>{const m=event.data;if(!m||m.jsonrpc!=='2.0')return;if(m.id&&pending.has(m.id)){const p=pending.get(m.id);pending.delete(m.id);m.error?p.reject(new Error(m.error.message)):p.resolve(m.result)}});
-function bridge(method,params){return new Promise((resolve,reject)=>{const id=bridgeSeq++;pending.set(id,{resolve,reject});parent.postMessage({jsonrpc:'2.0',id,method,params},'*');setTimeout(()=>{if(pending.delete(id))reject(new Error('宿主未响应 MCP Apps Bridge'))},10000)})}
+function bridge(method,params){return new Promise((resolve,reject)=>{const id=bridgeSeq++;pending.set(id,{resolve,reject});parent.postMessage({jsonrpc:'2.0',id,method,params},'*');setTimeout(()=>{if(pending.delete(id))reject(new Error('The host did not respond to the MCP Apps Bridge'))},10000)})}
 async function api(method,params){if(window.openai&&typeof window.openai.callTool==='function'){const r=await window.openai.callTool(method,params);return r.structuredContent||JSON.parse(r.content?.[0]?.text||'{}')}const r=await bridge('tools/call',{name:method,arguments:params});return r.structuredContent||JSON.parse(r.content?.[0]?.text||'{}')}
 bridge('ui/initialize',{protocolVersion:'2025-06-18',appInfo:{name:'cc-session-monitor',version:'0.1.0'},capabilities:{}}).then(()=>parent.postMessage({jsonrpc:'2.0',method:'ui/notifications/initialized'},'*')).catch(()=>{});`;
 }

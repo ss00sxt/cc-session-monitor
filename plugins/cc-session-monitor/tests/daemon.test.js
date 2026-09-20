@@ -28,11 +28,11 @@ test("daemon authenticates RPC, dispatches work, and serves dashboard", async (t
     });
     return (await response.json()).result;
   };
-  const started = await rpc("cc_dispatch", { prompt: "daemon test", summary: "守护进程测试", cwd: dir });
+  const started = await rpc("cc_dispatch", { prompt: "daemon test", summary: "Daemon test", cwd: dir });
   await daemon.service.runner.waitFor(started.sessionId);
   const sessions = await rpc("cc_get_sessions");
   assert.equal(sessions.snapshot.sessions[0].status, "completed");
-  assert.equal(sessions.snapshot.settings.language, "zh-CN");
+  assert.equal(sessions.snapshot.settings.language, "en");
   await rpc("cc_update_settings", { language: "en" });
   assert.equal((await rpc("cc_get_sessions")).snapshot.settings.language, "en");
   assert.equal(sessions.dashboard_url, daemon.dashboardUrl);

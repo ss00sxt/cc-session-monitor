@@ -1,80 +1,80 @@
 # CC Session Monitor
 
-一个用于浏览和管理本机 Claude Code 会话的轻量级 Codex 插件。
+<p>
+  <a href="./README.md"><kbd>English</kbd></a>
+  <a href="./README.zh-CN.md"><kbd>简体中文</kbd></a>
+</p>
 
-CC Session Monitor 会在本机记录 Claude Code 的会话状态、模型输出和工具调用，并通过 Ubuntu 顶栏图标与浏览器面板实时展示。你可以用它观察由 Codex 委派的任务，也可以查看自己在终端中手动启动的 Claude Code 会话。
+A lightweight Codex plugin for viewing and managing local Claude Code sessions.
 
-> 当前版本支持 **Ubuntu（GNOME/X11）**。macOS 和 Windows 客户端已经预留统一接口，将在后续版本开放。
+It is especially useful for people who want **Codex to plan, orchestrate, and review while Claude Code handles execution**.
 
-## 主要功能
+CC Session Monitor records Claude Code session status, visible model output, and tool activity on your machine, then presents them through an Ubuntu top-bar icon and a browser dashboard. It can monitor work delegated by Codex as well as Claude Code sessions started manually in a terminal.
 
-- 在 Ubuntu 顶栏显示常驻图标；出现新会话时显示红点提醒。
-- 展示每个 Claude Code 会话的简短概述、运行状态和持续时间。
-- 实时追加模型回答、Prompt、工具调用及工具结果。
-- 支持 Markdown，长 Prompt 和工具结果可以点击展开或收起。
-- 同一个 session 再次执行时继续使用原有任务行，不重复创建提示。
-- 已完成的任务会保留，直到用户主动关闭。
-- 提供中文和 English 两种界面语言。
-- 提供浏览器详细面板，适合查看较长的执行记录。
-- 会话状态持久化到本机；关闭 Codex 或终端后，后台监控服务仍可继续运行。
+> The current release supports **Ubuntu (GNOME/X11)**. A shared platform interface is already in place for future macOS and Windows clients.
 
-## 工作方式
+## Features
 
-插件不会扫描或读取系统中的任意进程。它通过两种受控方式接收 Claude Code 会话事件：
+- A persistent Ubuntu top-bar icon with a red notification dot for new sessions.
+- A compact summary, status, and elapsed time for each Claude Code session.
+- Incremental display of model responses, prompts, tool calls, and tool results.
+- Markdown rendering with expandable prompts and tool results.
+- Continued runs reuse the same row when they share a session ID.
+- Completed sessions remain available until you dismiss them.
+- English and Simplified Chinese user interfaces.
+- A larger browser dashboard for long execution histories.
+- Local durable state, so monitoring can continue after the initiating Codex turn or terminal exits.
 
-1. **Codex 委派任务**：Codex 使用插件提供的工具启动或继续 Claude Code 会话。
-2. **终端手动启动**：安装 Claude Code lifecycle hooks 后，插件接收本机 `claude` CLI 发出的会话、消息和工具事件。
+## How it works
 
-所有监控数据默认保存在本机。服务只监听 loopback 地址，不会主动把日志上传到第三方。
+The plugin does not scan arbitrary processes on your computer. It receives Claude Code lifecycle events through two controlled paths:
 
-## 当前支持情况
+1. **Codex delegation**: Codex starts or resumes a Claude Code session through the plugin tools.
+2. **Terminal sessions**: after installing the Claude Code lifecycle hooks, the plugin receives session, message, and tool events from locally launched `claude` CLI sessions.
 
-| 平台 | 状态 | 原生界面 |
+Monitoring data stays on your machine by default. The service listens only on a loopback address and does not upload logs to a third party.
+
+## Platform support
+
+| Platform | Status | Native UI |
 |---|---|---|
-| Ubuntu / GNOME | 已支持 | GTK 3 + AppIndicator 顶栏图标 |
-| macOS | 计划中 | Menu Bar + Popover |
-| Windows | 计划中 | System Tray + Flyout |
+| Ubuntu / GNOME | Supported | GTK 3 + AppIndicator top-bar icon |
+| macOS | Planned | Menu Bar + Popover |
+| Windows | Planned | System Tray + Flyout |
 
-当前已在 Ubuntu GNOME/X11 环境测试。其他 Linux 桌面可能能够运行浏览器面板，但暂未作为正式支持范围。
+Ubuntu GNOME/X11 is the currently tested environment. The browser dashboard may work on other Linux desktops, but they are not yet part of the supported matrix.
 
-## 安装要求
+## Requirements
 
-- Ubuntu，推荐 GNOME/X11 桌面环境
-- Node.js 20 或更高版本
+- Ubuntu, preferably with a GNOME/X11 desktop session
+- Node.js 20 or newer
 - Python 3
-- 已安装并登录的 Claude Code CLI
-- 已安装 Codex 桌面版或 Codex CLI
+- Claude Code CLI, installed and authenticated
+- Codex desktop or Codex CLI
 
-安装 Ubuntu 原生界面依赖：
+Install the Ubuntu native UI dependencies:
 
 ```bash
 sudo apt update
 sudo apt install python3-gi gir1.2-gtk-3.0 gir1.2-appindicator3-0.1
 ```
 
-插件本身没有 npm 运行时依赖。
+The plugin has no npm runtime dependencies.
 
-## 安装插件
-
-克隆项目并进入项目目录：
+## Installation
 
 ```bash
 git clone https://github.com/ss00sxt/cc-session-monitor.git
 cd cc-session-monitor
-```
-
-把本地项目注册为 Codex marketplace，然后安装插件：
-
-```bash
 codex plugin marketplace add "$PWD"
 codex plugin add cc-session-monitor@personal
 ```
 
-安装完成后，请新建一个 Codex 任务，让 Codex 重新加载插件的 skill 和 MCP 工具。
+After installation, start a new Codex task so Codex can load the plugin skill and MCP tools.
 
-### 启用终端会话监控
+### Enable monitoring for terminal sessions
 
-如果还希望监控自己在终端中直接运行的 `claude`，需要安装 Claude Code hooks 和 Ubuntu 后台服务：
+To monitor `claude` sessions started directly in a terminal, install the Claude Code hooks and the Ubuntu background service:
 
 ```bash
 PLUGIN_ROOT="$(find "$HOME/.codex/plugins/cache/personal/cc-session-monitor" \
@@ -84,75 +84,70 @@ python3 "$PLUGIN_ROOT/scripts/install_claude_hooks.py"
 python3 "$PLUGIN_ROOT/scripts/install_linux_service.py"
 ```
 
-Hook 安装器会保留已有 Claude Code hooks，并在修改 `~/.claude/settings.json` 前创建带时间戳的备份。两个安装命令都可以安全地重复执行。
+The hook installer preserves existing Claude Code hooks and creates a timestamped backup before editing `~/.claude/settings.json`. Both installers are safe to run repeatedly.
 
-## 使用教程
+## Quick start
 
-### 方法一：让 Codex 启动 Claude Code 任务
+### Option 1: delegate work from Codex
 
-在新的 Codex 任务中直接描述需求，例如：
+In a new Codex task, ask Codex to delegate the implementation and review the result:
 
 ```text
-请把这个实现任务交给 Claude Code，持续记录执行进度，完成后由你审核结果。
+Delegate this implementation to Claude Code, record its progress, and review the changes when it finishes.
 ```
 
-Codex 会：
+Codex creates a short task summary, starts a resumable Claude Code session, and sends its state to CC Session Monitor. When the executor finishes, Codex should independently inspect the changes and run appropriate verification.
 
-1. 为任务生成不超过 20 个字符的概述。
-2. 启动一个可继续的 Claude Code session。
-3. 把执行状态交给 CC Session Monitor 展示。
-4. 在任务结束后独立检查修改和测试结果。
+To continue the same work later, ask Codex to resume the existing session. The plugin appends the new run to the same row and preserves the executor context.
 
-如果要继续同一项工作，可以明确要求 Codex 恢复原 session。插件会在同一行继续追加内容，保留已有上下文。
+### Option 2: monitor Claude Code from a terminal
 
-### 方法二：监控终端中的 Claude Code
-
-完成 hooks 安装后，照常在终端中运行：
+After installing the hooks, start Claude Code normally:
 
 ```bash
 claude
 ```
 
-新会话出现时，Ubuntu 顶栏图标会显示红点。手动启动的会话会根据第一条 Prompt 在本机生成简短概述，不会额外调用模型。
+The Ubuntu top-bar icon shows a red dot when a new session appears. A short summary is generated locally from the first prompt, without an additional model call.
 
-### 查看任务详情
+### Inspect a session
 
-- 点击顶栏图标查看最近的 Claude Code 会话。
-- 点击任务行展开模型输出、Prompt、工具调用和结果。
-- 点击工具行可以展开对应结果，再次点击收起。
-- 将鼠标悬停在任务上可以查看 session ID。
-- 点击“浏览器详细面板”可以在更大的页面中查看记录。
-- 已完成任务可以通过关闭按钮从列表中移除。
+- Click the top-bar icon to view recent Claude Code sessions.
+- Click a session row to expand model output, prompts, tool calls, and results.
+- Click a tool row to expand or collapse its result.
+- Hover over a session to reveal its session ID.
+- Open **Browser details** for a larger execution history view.
+- Dismiss completed sessions with the close button.
 
-## 数据与隐私
+## Data and privacy
 
-- 状态和事件日志存储在本机插件数据目录。
-- 后台 API 只绑定本机 loopback 地址，并使用本地令牌鉴权。
-- 常见 API Key 和 Authorization Header 会在写入事件日志前脱敏。
-- 插件不展示模型的私有思维链，只显示高级状态、可见回答、工具名称、工具参数摘要和工具结果。
-- Claude Code 所使用的 API 配置由 Claude Code 自己管理；插件不会把密钥复制到事件日志。
+- State and event logs are stored in the local plugin data directory.
+- The background API binds only to loopback and uses a local authentication token.
+- Common API-key and Authorization-header patterns are redacted before events are stored.
+- Private model chain-of-thought is never shown. The UI displays only high-level status, visible responses, tool names, tool summaries, and tool results.
+- Claude Code remains responsible for its own API configuration; the plugin does not copy credentials into event logs.
 
-## 可选配置
+## Optional configuration
 
-| 环境变量 | 用途 |
+| Environment variable | Purpose |
 |---|---|
-| `CC_MONITOR_CLAUDE_PATH` | 指定 `claude` 可执行文件 |
-| `CC_MONITOR_CLAUDE_SETTINGS` | 指定 Claude Code settings 文件 |
-| `CC_MONITOR_ENV_FILE` | 指定启动 Claude Code 前加载的环境变量文件 |
-| `CC_MONITOR_DATA_DIR` | 指定状态和事件存储目录 |
-| `CC_MONITOR_PORT` | 指定本地监控服务端口 |
-| `CC_MONITOR_TRAY=0` | 禁用 Ubuntu 顶栏客户端 |
+| `CC_MONITOR_CLAUDE_PATH` | Override the `claude` executable |
+| `CC_MONITOR_CLAUDE_SETTINGS` | Override the Claude Code settings file |
+| `CC_MONITOR_ENV_FILE` | Load an environment file before launching Claude Code |
+| `CC_MONITOR_DATA_DIR` | Override the state and event storage directory |
+| `CC_MONITOR_PORT` | Override the local monitor port |
+| `CC_MONITOR_TRAY=0` | Disable the Ubuntu top-bar client |
 
-## 卸载 hooks 和后台服务
+## Remove hooks and the background service
 
 ```bash
 python3 "$PLUGIN_ROOT/scripts/install_claude_hooks.py" --remove
 python3 "$PLUGIN_ROOT/scripts/install_linux_service.py" --remove
 ```
 
-Hook 卸载只会移除 CC Session Monitor 自己注册的处理器，不会删除其他 Claude Code hooks。
+Hook removal deletes only handlers registered by CC Session Monitor and leaves unrelated Claude Code hooks intact.
 
-## 开发与测试
+## Development
 
 ```bash
 cd plugins/cc-session-monitor
@@ -161,28 +156,14 @@ npm test
 python3 clients/linux_tray.py --data-dir /tmp --plugin-root "$PWD" --check
 ```
 
-核心守护进程与数据接口不依赖具体桌面平台。未来的 macOS 和 Windows 客户端只需要实现原生菜单栏或系统托盘外壳，详情参见 [平台客户端约定](docs/platform-client.md)。
-
-## 项目结构
-
-```text
-cc-session-monitor/
-├── .agents/plugins/marketplace.json   # Codex marketplace 描述
-├── docs/                              # 平台接口文档
-└── plugins/cc-session-monitor/
-    ├── clients/                       # Ubuntu 顶栏与 hooks 客户端
-    ├── scripts/                       # hooks / systemd 安装器
-    ├── skills/                        # Codex 委派工作流
-    ├── src/                           # daemon、MCP 服务和 Web UI
-    └── tests/                         # 自动化测试
-```
+The daemon and data contract are platform-neutral. Future macOS and Windows clients only need to implement their native menu-bar or system-tray shell. See the [platform client contract](docs/platform-client.md).
 
 ## Roadmap
 
-- 完善 Ubuntu / Wayland 兼容性。
-- 提供 macOS Menu Bar 客户端。
-- 提供 Windows System Tray 客户端。
-- 增加安装包、自动升级和更完整的诊断工具。
+- Improve Ubuntu / Wayland compatibility.
+- Add a macOS Menu Bar client.
+- Add a Windows System Tray client.
+- Add packaged installers, automatic updates, and more diagnostics.
 
 ## License
 
