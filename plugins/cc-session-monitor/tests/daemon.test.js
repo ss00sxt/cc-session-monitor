@@ -10,7 +10,7 @@ const fixture = join(dirname(fileURLToPath(import.meta.url)), "fixtures", "fake-
 
 test("daemon authenticates RPC, dispatches work, and serves dashboard", async (t) => {
   const dir = await mkdtemp(join(tmpdir(), "cc-monitor-daemon-"));
-  const daemon = await startDaemon({ dataDir: dir, port: 0, startTray: false, runnerOptions: { executable: process.execPath, baseArgs: [fixture], envFile: false, snapshotIntervalMs: 10 } });
+  const daemon = await startDaemon({ dataDir: dir, port: 0, startTray: false, runnerOptions: { mode: "direct", executable: process.execPath, baseArgs: [fixture], envFile: false, snapshotIntervalMs: 10 } });
   t.after(() => daemon.close());
 
   const unauthorized = await fetch(`http://${daemon.host}:${daemon.port}/api/rpc`, { method: "POST", headers: { "content-type": "application/json" }, body: "{}" });

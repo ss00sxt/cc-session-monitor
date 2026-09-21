@@ -9,6 +9,7 @@ const emit = (value) => process.stdout.write(`${JSON.stringify({ ...value, sessi
 
 emit({ type: "system", subtype: "init", cwd: process.cwd(), model: "fake-model", claude_code_version: "test" });
 emit({ type: "system", subtype: "status", status: "requesting" });
+if (prompt.includes("PERSIST_WORKER")) await new Promise((resolve) => setTimeout(resolve, 1800));
 await new Promise((resolve) => setTimeout(resolve, 15));
 emit({ type: "stream_event", event: { type: "content_block_delta", delta: { type: "text_delta", text: "正在分析" } } });
 emit({ type: "assistant", message: { content: [{ type: "tool_use", id: "tool-1", name: "Read", input: { file_path: "README.md" } }] } });

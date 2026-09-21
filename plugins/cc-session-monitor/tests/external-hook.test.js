@@ -69,3 +69,21 @@ test("hook installer preserves existing hooks and is idempotent", async () => {
   assert.equal(parsed.hooks.MessageDisplay[0].hooks[0].async, undefined);
   assert.equal(parsed.hooks.PreToolUse[0].hooks[0].async, true);
 });
+
+test("manual Claude Code hooks reconnect to the same session after monitor restart", async (t) => {
+  const dir = await mkdtemp(join(tmpdir(), "cc-monitor-hook-restart-"));
+  let daemon = await startDaemon({ dataDir: dir, port: 0, startTray: false });
+  t.after(async () => { await daemon?.close(); });
+  const base = { session_id: "still-running-manual", cwd: dir, transcript_path: join(dir, "transcript.jsonl") };
+  await sendHook(dir, { ...base, hook_event_name: "SessionStart", source: "startup" });
+  await sendHook(dir, { ...base, hook_event_name: "UserPromptSubmit", prompt: "Keep working across monitor restart" });
+  const before = daemon.service.store.state.lastSeq;
+  await daemon.close();
+  daemon = null;
+  daemon = await startDaemon({ dataDir: dir, port: 0, startTray: false });
+  assert.equal(daemon.service.store.getSession(base.session_id).status, "generating");
+  await sendHook(dir, { ...base, hook_event_name: "MessageDisplay", turn_id: "turn-1", message_id: "m1", index: 0, final: true, delta: "Task continues" });
+  assert.equal(daemon.service.store.state.lastSeq, before + 1);
+  assert.equal(daemon.service.store.getSession(base.session_id).lastOutput, "Task continues");
+  assert.equal(daemon.service.store.snapshot().sessions.filter((session) => session.sessionId === base.session_id).length, 1);
+});

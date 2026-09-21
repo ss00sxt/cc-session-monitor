@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { mkdtemp } from "node:fs/promises";
+import { mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { EventStore } from "../src/store.js";
@@ -30,11 +30,15 @@ test("event log reduces to a session snapshot and supports dismissal", async () 
   assert.equal(store.getSession("s1").status, "generating");
 });
 
-test("active sessions become orphaned after monitor restart", async () => {
+test("restart preserves active sessions until the executor can be reattached", async () => {
   const dir = await mkdtemp(join(tmpdir(), "cc-monitor-recover-"));
   const first = await new EventStore(dir).init();
   await first.append("s2", "r2", "run_started", { summary: "长任务", cwd: dir });
   const second = await new EventStore(dir).init();
+  assert.equal(second.getSession("s2").status, "running");
+  await second.orphanUnattached(new Set(["s2"]));
+  assert.equal(second.getSession("s2").status, "running");
+  await second.orphanUnattached(new Set());
   assert.equal(second.getSession("s2").status, "orphaned");
 });
 
@@ -47,4 +51,18 @@ test("resumed activity clears a stale completion timestamp", async () => {
   await store.append("s3", "r3", "tool_started", { tool: "Bash", summary: "echo later" });
   assert.equal(store.getSession("s3").status, "tool_running");
   assert.equal(store.getSession("s3").completedAt, null);
+});
+
+test("restart recovers events written before a state checkpoint", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "cc-monitor-checkpoint-"));
+  const first = await new EventStore(dir).init();
+  await first.append("s4", "r4", "run_started", { summary: "recover" });
+  const checkpoint = await readFile(join(dir, "state.json"), "utf8");
+  await first.append("s4", "r4", "assistant_message", { text: "late output" }, 1000);
+  await writeFile(join(dir, "state.json"), checkpoint);
+  const second = await new EventStore(dir).init();
+  assert.equal(second.getSession("s4").lastOutput, "late output");
+  assert.equal(second.state.workerEventSeq.r4, 1000);
+  assert.equal(await second.append("s4", "r4", "assistant_message", { text: "late output" }, 1000), null);
+  assert.equal((await second.events({ sessionId: "s4" })).length, 2);
 });

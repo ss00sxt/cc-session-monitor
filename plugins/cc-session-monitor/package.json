@@ -8,7 +8,7 @@
     "cc-session-monitor-daemon": "src/daemon.js"
   },
   "scripts": {
-    "check": "node --check src/server.js && node --check src/daemon.js && node --check src/runner.js && node --check src/store.js && node --check src/service.js && node --check src/ui.js",
+    "check": "node --check src/server.js && node --check src/daemon.js && node --check src/runner.js && node --check src/durable-runner.js && node --check src/durable-worker.js && node --check src/store.js && node --check src/service.js && node --check src/ui.js",
     "test": "node --test",
     "start": "node src/server.js",
     "daemon": "node src/daemon.js"

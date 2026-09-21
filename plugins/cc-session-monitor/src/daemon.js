@@ -60,6 +60,7 @@ export async function startDaemon({ dataDir = DATA_DIR, port = process.env.CC_MO
   if (startTray) await maybeStartLinuxTray(dataDir);
 
   const close = async () => {
+    service.runner.stop?.();
     await new Promise((resolveClose) => server.close(resolveClose));
   };
   return { server, service, token, host, port: actualPort, dashboardUrl, close };

@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { ACTIVE_STATES, TERMINAL_STATES, atomicWriteJson, bounded, nowIso, readJson, truncateSummary } from "./utils.js";
 
 function emptyState() {
-  return { schemaVersion: 1, revision: 0, lastSeq: 0, sessions: {} };
+  return { schemaVersion: 1, revision: 0, lastSeq: 0, sessions: {}, workerEventSeq: {} };
 }
 
 export class EventStore {
@@ -18,30 +18,39 @@ export class EventStore {
   async init() {
     await mkdir(this.dataDir, { recursive: true, mode: 0o700 });
     this.state = await readJson(this.statePath, emptyState());
-    for (const session of Object.values(this.state.sessions)) {
-      if (ACTIVE_STATES.has(session.status)) {
-        session.status = "orphaned";
-        session.updatedAt = nowIso();
-        session.completedAt = session.updatedAt;
-        session.lastOutput = "监控服务重启，无法继续附加到原执行进程";
-      }
+    this.state.workerEventSeq ??= {};
+    // The process can die after appending an event but before checkpointing
+    // state.json. Rebuild that tail first so worker replay cannot duplicate it.
+    let log = "";
+    try { log = await readFile(this.eventsPath, "utf8"); } catch (error) { if (error?.code !== "ENOENT") throw error; }
+    for (const line of log.split("\n")) {
+      if (!line) continue;
+      const event = JSON.parse(line);
+      if (event.seq <= this.state.lastSeq) continue;
+      this.reduce(event);
+      this.state.lastSeq = event.seq;
+      this.state.revision += 1;
+      if (event.workerEventSeq != null) this.state.workerEventSeq[event.runId] = event.workerEventSeq;
     }
     await this.persist();
     return this;
   }
 
-  append(sessionId, runId, type, data = {}) {
+  append(sessionId, runId, type, data = {}, workerEventSeq = null) {
     const operation = async () => {
+      if (workerEventSeq !== null && workerEventSeq <= (this.state.workerEventSeq[runId] ?? 0)) return null;
       const event = {
         seq: ++this.state.lastSeq,
         timestamp: nowIso(),
         sessionId,
         runId: runId ?? null,
         type,
-        data: sanitizeData(data)
+        data: sanitizeData(data),
+        ...(workerEventSeq === null ? {} : { workerEventSeq })
       };
       await appendFile(this.eventsPath, `${JSON.stringify(event)}\n`, { mode: 0o600 });
       this.reduce(event);
+      if (workerEventSeq !== null) this.state.workerEventSeq[runId] = workerEventSeq;
       this.state.revision += 1;
       await this.persist();
       return event;
@@ -219,6 +228,17 @@ export class EventStore {
 
   getSession(sessionId) {
     return this.state.sessions[sessionId] ?? null;
+  }
+
+  async orphanUnattached(activeSessionIds) {
+    for (const session of Object.values(this.state.sessions)) {
+      if (session.source !== "managed" || !ACTIVE_STATES.has(session.status) || activeSessionIds.has(session.sessionId)) continue;
+      session.status = "orphaned";
+      session.updatedAt = nowIso();
+      session.completedAt = session.updatedAt;
+      session.lastOutput = "Monitor restarted without an attachable executor";
+    }
+    await this.persist();
   }
 
   async events({ sessionId, afterSeq = 0, limit = 500 } = {}) {

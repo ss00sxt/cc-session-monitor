@@ -24,6 +24,7 @@ CC Session Monitor records Claude Code session status, visible model output, and
 - English and Simplified Chinese user interfaces.
 - A larger browser dashboard for long execution histories.
 - Local durable state, so monitoring can continue after the initiating Codex turn or terminal exits.
+- Delegated Claude Code runs live in separate user services; restarting the monitor does not stop them.
 
 ## How it works
 
@@ -31,6 +32,8 @@ The plugin does not scan arbitrary processes on your computer. It receives Claud
 
 1. **Codex delegation**: Codex starts or resumes a Claude Code session through the plugin tools.
 2. **Terminal sessions**: after installing the Claude Code lifecycle hooks, the plugin receives session, message, and tool events from locally launched `claude` CLI sessions.
+
+On Ubuntu, delegated runs use independent systemd user services. Each run writes a local event spool that the monitor replays after a restart, so output produced while the dashboard is offline appears when it returns. Terminal sessions are owned by your terminal; their hooks reconnect on the next event. A session started by an older plugin version may still share the monitor's process group, so the installer refuses to restart the monitor while such a run is active.
 
 Monitoring data stays on your machine by default. The service listens only on a loopback address and does not upload logs to a third party.
 
@@ -47,6 +50,7 @@ Ubuntu GNOME/X11 is the currently tested environment. The browser dashboard may 
 ## Requirements
 
 - Ubuntu, preferably with a GNOME/X11 desktop session
+- A running systemd user manager for restart-safe delegated runs
 - Node.js 20 or newer
 - Python 3
 - Claude Code CLI, installed and authenticated
@@ -122,6 +126,7 @@ The Ubuntu top-bar icon shows a red dot when a new session appears. A short summ
 ## Data and privacy
 
 - State and event logs are stored in the local plugin data directory.
+- Delegated runs also keep a per-run local output spool until removed; protect this directory as you would a Claude Code transcript.
 - The background API binds only to loopback and uses a local authentication token.
 - Common API-key and Authorization-header patterns are redacted before events are stored.
 - Private model chain-of-thought is never shown. The UI displays only high-level status, visible responses, tool names, tool summaries, and tool results.

@@ -2,6 +2,7 @@ import { stat } from "node:fs/promises";
 import { join } from "node:path";
 import { EventStore } from "./store.js";
 import { ClaudeRunner } from "./runner.js";
+import { DurableClaudeRunner } from "./durable-runner.js";
 import { atomicWriteJson, readJson } from "./utils.js";
 
 const PERMISSION_MODES = new Set(["acceptEdits", "auto", "dontAsk", "manual", "plan"]);
@@ -20,7 +21,9 @@ export class MonitorService {
     await this.store.init();
     const saved = await readJson(this.settingsPath, {});
     if (LANGUAGES.has(saved?.language)) this.settings.language = saved.language;
-    this.runner = new ClaudeRunner({ store: this.store, ...this.runnerOptions });
+    this.runner = this.runnerOptions.mode === "direct"
+      ? new ClaudeRunner({ store: this.store, ...this.runnerOptions })
+      : await new DurableClaudeRunner({ store: this.store, ...this.runnerOptions }).init();
     return this;
   }
 

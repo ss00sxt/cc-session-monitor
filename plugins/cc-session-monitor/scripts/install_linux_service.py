@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import shutil
 import subprocess
@@ -52,6 +53,25 @@ def systemctl(*args: str, check: bool = True) -> subprocess.CompletedProcess[str
     return subprocess.run(["systemctl", "--user", *args], check=check, text=True, capture_output=True)
 
 
+def legacy_managed_sessions() -> list[str]:
+    """Legacy children still share the monitor cgroup; restarting would kill them."""
+    data_dir = Path(os.environ.get("CC_MONITOR_DATA_DIR", Path.home() / ".local/state/cc-session-monitor"))
+    try:
+        state = json.loads((data_dir / "state.json").read_text(encoding="utf-8"))
+    except FileNotFoundError:
+        return []
+    active = {"starting", "running", "generating", "tool_running", "waiting_permission", "cancelling"}
+    result = []
+    for session in state.get("sessions", {}).values():
+        if session.get("source") != "managed" or session.get("status") not in active:
+            continue
+        run_id = session.get("currentRunId")
+        manifest_path = data_dir / "workers" / str(run_id) / "manifest.json"
+        if not manifest_path.exists():
+            result.append(session.get("sessionId", "unknown"))
+    return result
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--remove", action="store_true")
@@ -66,12 +86,18 @@ def main() -> int:
         print(unit, end="")
         return 0
     if args.remove:
+        legacy = legacy_managed_sessions()
+        if legacy:
+            parser.error(f"Cannot stop the legacy monitor while managed Claude Code is active: {', '.join(legacy)}")
         systemctl("disable", "--now", UNIT_NAME, check=False)
         unit_path.unlink(missing_ok=True)
         systemctl("daemon-reload")
         print(f"Removed {UNIT_NAME}")
         return 0
 
+    legacy = legacy_managed_sessions()
+    if legacy:
+        parser.error(f"Cannot restart the legacy monitor while managed Claude Code is active: {', '.join(legacy)}")
     write_atomic(unit_path, unit)
     systemctl("daemon-reload")
     enable_result = systemctl("enable", UNIT_NAME)
