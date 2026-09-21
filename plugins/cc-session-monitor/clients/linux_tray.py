@@ -825,7 +825,7 @@ def status_mark(status: str) -> str:
 
 def format_elapsed(session: dict) -> str:
     start = datetime.fromisoformat(session["startedAt"].replace("Z", "+00:00")).timestamp()
-    end = datetime.fromisoformat(session["completedAt"].replace("Z", "+00:00")).timestamp() if session.get("completedAt") else time.time()
+    end = datetime.fromisoformat(session["completedAt"].replace("Z", "+00:00")).timestamp() if session.get("status") in TERMINAL and session.get("completedAt") else time.time()
     seconds = max(0, int(end - start))
     hours, remainder = divmod(seconds, 3600)
     minutes, seconds = divmod(remainder, 60)

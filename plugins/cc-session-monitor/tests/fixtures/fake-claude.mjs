@@ -22,7 +22,13 @@ if (prompt.includes("IDLE_HEARTBEAT") || prompt.includes("ACTIVE_NO_HEARTBEAT"))
   if (prompt.includes("IDLE_HEARTBEAT")) await new Promise((resolve) => setTimeout(resolve, 70));
 }
 
-if (prompt.includes("FAIL")) {
+if (prompt.includes("EARLY_RESULT")) {
+  emit({ type: "result", is_error: false, terminal_reason: "success", result: "intermediate result", duration_ms: 20 });
+  await new Promise((resolve) => setTimeout(resolve, 45));
+  emit({ type: "assistant", message: { content: [{ type: "tool_use", id: "late-tool", name: "Bash", input: { command: "echo later" } }] } });
+  await new Promise((resolve) => setTimeout(resolve, 45));
+  emit({ type: "user", message: { content: [{ type: "tool_result", tool_use_id: "late-tool", content: "later" }] } });
+} else if (prompt.includes("FAIL")) {
   emit({ type: "result", is_error: true, terminal_reason: "api_error", result: "simulated failure", duration_ms: 20, total_cost_usd: 0 });
   process.exitCode = 1;
 } else {

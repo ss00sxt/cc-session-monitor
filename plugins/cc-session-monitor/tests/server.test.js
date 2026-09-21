@@ -1,6 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import { runInNewContext } from "node:vm";
+import { fileURLToPath } from "node:url";
 import { handleRequest } from "../src/server.js";
 import { renderMonitorHtml } from "../src/ui.js";
 
@@ -54,6 +56,23 @@ test("browser dashboard script is valid JavaScript", () => {
   const script = html.match(/<script>([\s\S]*)<\/script>/)?.[1];
   assert.ok(script);
   assert.doesNotThrow(() => new Function(script));
+});
+
+test("running session timers ignore stale completion timestamps in both panels", () => {
+  const html = renderMonitorHtml({ mode: "dashboard", token: "test" });
+  const script = html.match(/<script>([\s\S]*)<\/script>/)?.[1];
+  const elapsedSource = script.split("\n").find((line) => line.startsWith("function elapsed("));
+  const elapsed = runInNewContext(`${elapsedSource}\nelapsed`, {
+    terminal: new Set(["completed", "failed", "cancelled", "orphaned"]),
+    Date: { parse: Date.parse, now: () => 10_000 }
+  });
+  const session = { startedAt: "1970-01-01T00:00:00Z", completedAt: "1970-01-01T00:00:02Z", status: "tool_running" };
+  assert.equal(elapsed(session), "00:10");
+  assert.equal(elapsed({ ...session, status: "completed" }), "00:02");
+
+  const clientsDir = fileURLToPath(new URL("../clients/", import.meta.url));
+  const check = spawnSync("python3", ["-c", "import sys,time; sys.path.insert(0,sys.argv[1]); from linux_tray import format_elapsed; time.time=lambda:10; s={'startedAt':'1970-01-01T00:00:00Z','completedAt':'1970-01-01T00:00:02Z','status':'tool_running'}; assert format_elapsed(s)=='00:10'; s['status']='completed'; assert format_elapsed(s)=='00:02'", clientsDir], { encoding: "utf8" });
+  assert.equal(check.status, 0, check.stderr);
 });
 
 test("browser view merges repeated tool starts by tool-use ID", () => {

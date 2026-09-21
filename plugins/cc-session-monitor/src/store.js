@@ -203,6 +203,7 @@ export class EventStore {
       default:
         break;
     }
+    if (!TERMINAL_STATES.has(session.status)) session.completedAt = null;
   }
 
   async persist() {

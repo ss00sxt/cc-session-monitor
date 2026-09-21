@@ -58,6 +58,20 @@ test("progress heartbeat appears only after inactivity and does not repeat outpu
   assert.ok(snapshots[0].data.processId);
 });
 
+test("a streamed result does not end a run while the process continues", async () => {
+  const { dir, store, runner } = await setup();
+  runner.snapshotIntervalMs = 25;
+  const run = await runner.dispatch({ prompt: "EARLY_RESULT", summary: "early result", cwd: dir });
+  await runner.waitFor(run.sessionId);
+  const events = await store.events({ sessionId: run.sessionId });
+  const terminal = events.filter((event) => ["run_completed", "run_failed"].includes(event.type));
+  assert.equal(terminal.length, 1);
+  assert.equal(terminal[0].type, "run_completed");
+  assert.ok(events.findIndex((event) => event.type === "tool_completed") < events.findIndex((event) => event.type === "run_completed"));
+  assert.ok(events.some((event) => event.type === "progress_snapshot"));
+  assert.equal(store.getSession(run.sessionId).status, "completed");
+});
+
 test("message normalizer never exposes thinking text", () => {
   const events = normalizeClaudeMessage({ type: "stream_event", event: { type: "content_block_delta", delta: { type: "thinking_delta", thinking: "private reasoning" } } });
   assert.deepEqual(events, [{ type: "model_status", data: { status: "thinking" } }]);

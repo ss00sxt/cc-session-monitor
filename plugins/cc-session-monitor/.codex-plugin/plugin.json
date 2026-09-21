@@ -1,6 +1,6 @@
 {
   "name": "cc-session-monitor",
-  "version": "0.1.0+codex.20260921125246",
+  "version": "0.1.0+codex.20260921131657",
   "description": "Dispatch, resume, and monitor Claude Code sessions from Codex.",
   "author": {
     "name": "Sunxt"

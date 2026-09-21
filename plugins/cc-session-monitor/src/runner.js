@@ -51,7 +51,8 @@ export class ClaudeRunner {
       child,
       runId,
       sessionId: finalSessionId,
-      resultSeen: false,
+      pendingResult: null,
+      terminalRecorded: false,
       lastOutput: "",
       chain: Promise.resolve(),
       resolveDone: null,
@@ -114,34 +115,44 @@ export class ClaudeRunner {
 
     const events = normalizeClaudeMessage(message);
     for (const event of events) {
-      if (["text_delta", "assistant_message", "tool_started", "tool_completed", "stderr", "run_completed", "run_failed"].includes(event.type)) {
+      if (["text_delta", "assistant_message", "tool_started", "tool_completed", "stderr"].includes(event.type)) {
         this.scheduleIdleSnapshot(record);
       }
       if (event.data?.text || event.data?.output || event.data?.result) {
         record.lastOutput = bounded(event.data.text ?? event.data.output ?? event.data.result, 4_000);
       }
-      if (event.type === "run_completed" || event.type === "run_failed") record.resultSeen = true;
+      if (event.type === "run_completed" || event.type === "run_failed") {
+        // A streamed result can precede more output or tool calls. The process
+        // exit, not the first result message, is the terminal boundary.
+        record.pendingResult = event;
+        continue;
+      }
       await this.store.append(record.sessionId, record.runId, event.type, event.data);
     }
   }
 
   async finishSpawnError(record, error) {
-    if (!record.resultSeen) {
-      record.resultSeen = true;
+    if (!record.terminalRecorded) {
+      record.terminalRecorded = true;
       await this.store.append(record.sessionId, record.runId, "run_failed", { error: error.message, exitCode: 1 });
     }
   }
 
   async finishProcess(record, code, signal) {
     clearTimeout(record.snapshotTimer);
-    if (!record.resultSeen) {
-      const type = record.cancelled ? "run_cancelled" : code === 0 ? "run_completed" : "run_failed";
+    if (!record.terminalRecorded) {
+      const type = record.cancelled ? "run_cancelled" : code === 0 && record.pendingResult?.type !== "run_failed" ? "run_completed" : "run_failed";
+      const result = record.pendingResult?.data || {};
       await this.store.append(record.sessionId, record.runId, type, {
         exitCode: code,
         signal,
-        result: type === "run_completed" ? record.lastOutput : undefined,
-        error: type === "run_failed" ? record.lastOutput || `Claude Code exited with code ${code}` : undefined
+        durationMs: result.durationMs,
+        costUsd: result.costUsd,
+        usage: result.usage,
+        result: type === "run_completed" ? result.result ?? record.lastOutput : undefined,
+        error: type === "run_failed" ? result.error || record.lastOutput || `Claude Code exited with code ${code}` : undefined
       });
+      record.terminalRecorded = true;
     }
     this.active.delete(record.sessionId);
     record.resolveDone?.({ code, signal });
@@ -166,7 +177,7 @@ export class ClaudeRunner {
     const generation = ++record.snapshotGeneration;
     record.snapshotTimer = setTimeout(() => {
       record.chain = record.chain.then(async () => {
-        if (generation !== record.snapshotGeneration || !this.active.has(record.sessionId) || record.resultSeen) return;
+        if (generation !== record.snapshotGeneration || !this.active.has(record.sessionId) || record.terminalRecorded) return;
         await this.store.append(record.sessionId, record.runId, "progress_snapshot", { processId: record.child.pid });
         this.scheduleIdleSnapshot(record);
       });

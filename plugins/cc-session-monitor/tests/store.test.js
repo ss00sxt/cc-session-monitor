@@ -37,3 +37,14 @@ test("active sessions become orphaned after monitor restart", async () => {
   const second = await new EventStore(dir).init();
   assert.equal(second.getSession("s2").status, "orphaned");
 });
+
+test("resumed activity clears a stale completion timestamp", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "cc-monitor-stale-time-"));
+  const store = await new EventStore(dir).init();
+  await store.append("s3", "r3", "run_started", { summary: "task", cwd: dir });
+  await store.append("s3", "r3", "run_completed", { result: "intermediate", exitCode: 0 });
+  assert.ok(store.getSession("s3").completedAt);
+  await store.append("s3", "r3", "tool_started", { tool: "Bash", summary: "echo later" });
+  assert.equal(store.getSession("s3").status, "tool_running");
+  assert.equal(store.getSession("s3").completedAt, null);
+});
