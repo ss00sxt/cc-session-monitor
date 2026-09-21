@@ -57,6 +57,7 @@ export class ClaudeRunner {
       resolveDone: null,
       done: null,
       snapshotTimer: null,
+      snapshotGeneration: 0,
       cancelled: false
     };
     record.done = new Promise((resolve) => { record.resolveDone = resolve; });
@@ -68,19 +69,14 @@ export class ClaudeRunner {
     });
     const stderr = readline.createInterface({ input: child.stderr });
     stderr.on("line", (line) => {
+      this.scheduleIdleSnapshot(record);
       record.chain = record.chain.then(async () => {
         record.lastOutput = bounded(line, 4_000);
         await this.store.append(finalSessionId, runId, "stderr", { text: line });
       });
     });
 
-    record.snapshotTimer = setInterval(() => {
-      record.chain = record.chain.then(() => this.store.append(finalSessionId, runId, "progress_snapshot", {
-        output: record.lastOutput,
-        processId: child.pid
-      }));
-    }, this.snapshotIntervalMs);
-    record.snapshotTimer.unref?.();
+    this.scheduleIdleSnapshot(record);
 
     child.once("error", (error) => {
       record.chain = record.chain.then(() => this.finishSpawnError(record, error));
@@ -110,6 +106,7 @@ export class ClaudeRunner {
   async handleLine(record, line) {
     const message = safeJsonParse(line);
     if (!message) {
+      this.scheduleIdleSnapshot(record);
       record.lastOutput = bounded(line, 4_000);
       await this.store.append(record.sessionId, record.runId, "stdout", { text: line });
       return;
@@ -117,6 +114,9 @@ export class ClaudeRunner {
 
     const events = normalizeClaudeMessage(message);
     for (const event of events) {
+      if (["text_delta", "assistant_message", "tool_started", "tool_completed", "stderr", "run_completed", "run_failed"].includes(event.type)) {
+        this.scheduleIdleSnapshot(record);
+      }
       if (event.data?.text || event.data?.output || event.data?.result) {
         record.lastOutput = bounded(event.data.text ?? event.data.output ?? event.data.result, 4_000);
       }
@@ -133,7 +133,7 @@ export class ClaudeRunner {
   }
 
   async finishProcess(record, code, signal) {
-    clearInterval(record.snapshotTimer);
+    clearTimeout(record.snapshotTimer);
     if (!record.resultSeen) {
       const type = record.cancelled ? "run_cancelled" : code === 0 ? "run_completed" : "run_failed";
       await this.store.append(record.sessionId, record.runId, type, {
@@ -159,6 +159,19 @@ export class ClaudeRunner {
 
   waitFor(sessionId) {
     return this.active.get(sessionId)?.done ?? Promise.resolve(null);
+  }
+
+  scheduleIdleSnapshot(record) {
+    clearTimeout(record.snapshotTimer);
+    const generation = ++record.snapshotGeneration;
+    record.snapshotTimer = setTimeout(() => {
+      record.chain = record.chain.then(async () => {
+        if (generation !== record.snapshotGeneration || !this.active.has(record.sessionId) || record.resultSeen) return;
+        await this.store.append(record.sessionId, record.runId, "progress_snapshot", { processId: record.child.pid });
+        this.scheduleIdleSnapshot(record);
+      });
+    }, this.snapshotIntervalMs);
+    record.snapshotTimer.unref?.();
   }
 }
 

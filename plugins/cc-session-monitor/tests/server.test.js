@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { runInNewContext } from "node:vm";
 import { handleRequest } from "../src/server.js";
 import { renderMonitorHtml } from "../src/ui.js";
 
@@ -53,6 +54,27 @@ test("browser dashboard script is valid JavaScript", () => {
   const script = html.match(/<script>([\s\S]*)<\/script>/)?.[1];
   assert.ok(script);
   assert.doesNotThrow(() => new Function(script));
+});
+
+test("browser view merges repeated tool starts by tool-use ID", () => {
+  const html = renderMonitorHtml({ mode: "dashboard", token: "test" });
+  const script = html.match(/<script>([\s\S]*)<\/script>/)?.[1];
+  const functions = script.split("\n").filter((line) => line.startsWith("function createTool(") || line.startsWith("function completeTool("));
+  assert.equal(functions.length, 2);
+  const element = () => ({ children: [], dataset: {}, classList: { add() {} }, append(...children) { this.children.push(...children) }, appendChild(child) { this.children.push(child) }, addEventListener() {}, setAttribute() {} });
+  const { createTool, completeTool } = runInNewContext(`${functions.join("\n")}\n({createTool,completeTool})`, {
+    document: { createElement: element }, toolIcon: "", resultIcon: "", t: (key) => key,
+    valueText: String, toolResultText: (data) => data.output, stamp: (event) => event.timestamp, activateOnKeyboard() {}, setMarkdown(target, text) { target.innerHTML = text }
+  });
+  const view = { events: element(), state: { tools: new Map(), pendingTools: [], toolCounter: 0 } };
+  const first = createTool(view, { timestamp: "start", data: { tool: "Bash", toolUseId: "tool-1", summary: "Bash" } });
+  const updated = createTool(view, { timestamp: "detail", data: { tool: "Bash", toolUseId: "tool-1", summary: "echo hello" } });
+  assert.equal(first, updated);
+  assert.equal(view.events.children.length, 1);
+  assert.equal(first.summary.textContent, "Bash · echo hello");
+  completeTool(view, { timestamp: "finish", data: { toolUseId: "tool-1", output: "hello" } });
+  assert.equal(view.events.children.length, 1);
+  assert.equal(first.resultTime.textContent, "finish");
 });
 
 test("MCP tool calls are proxied without exposing daemon credentials", async () => {

@@ -43,6 +43,21 @@ test("runner reports a failed result", async () => {
   assert.match(store.getSession(run.sessionId).lastOutput, /simulated failure/);
 });
 
+test("progress heartbeat appears only after inactivity and does not repeat output", async () => {
+  const { dir, store, runner } = await setup();
+  runner.snapshotIntervalMs = 40;
+  const active = await runner.dispatch({ prompt: "ACTIVE_NO_HEARTBEAT", summary: "active", cwd: dir });
+  await runner.waitFor(active.sessionId);
+  assert.equal((await store.events({ sessionId: active.sessionId })).filter((event) => event.type === "progress_snapshot").length, 0);
+
+  const idle = await runner.dispatch({ prompt: "IDLE_HEARTBEAT", summary: "idle", cwd: dir });
+  await runner.waitFor(idle.sessionId);
+  const snapshots = (await store.events({ sessionId: idle.sessionId })).filter((event) => event.type === "progress_snapshot");
+  assert.equal(snapshots.length, 1);
+  assert.equal(snapshots[0].data.output, undefined);
+  assert.ok(snapshots[0].data.processId);
+});
+
 test("message normalizer never exposes thinking text", () => {
   const events = normalizeClaudeMessage({ type: "stream_event", event: { type: "content_block_delta", delta: { type: "thinking_delta", thinking: "private reasoning" } } });
   assert.deepEqual(events, [{ type: "model_status", data: { status: "thinking" } }]);

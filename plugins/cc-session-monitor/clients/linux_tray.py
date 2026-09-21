@@ -35,7 +35,7 @@ TEXT = {
         "open": "打开 CC 任务面板", "dashboard": "浏览器详细面板", "quit": "退出托盘图标",
         "language": "语言", "cancel": "取消任务", "dismiss": "关闭提示", "empty": "还没有 Claude Code 任务",
         "connection_failed": "连接监控服务失败", "tooltip": "CC Session Monitor", "instruction": "提示词",
-        "tool": "工具", "result": "结果", "error": "错误", "status": "状态", "progress": "进度", "event": "事件",
+        "tool": "工具", "result": "结果", "error": "错误", "status": "状态", "progress": "进度", "heartbeat": "仍在运行", "event": "事件",
         "cancelled_text": "任务已取消", "failed_text": "任务执行失败", "finished": "已完成", "thinking": "模型思考中", "waiting_output": "尚无新输出",
         "starting": "启动中", "running": "执行中", "generating": "生成中", "tool_running": "调用工具",
         "waiting_permission": "等待权限", "cancelling": "取消中", "completed": "已完成", "failed": "失败",
@@ -45,7 +45,7 @@ TEXT = {
         "open": "Open CC task panel", "dashboard": "Browser details", "quit": "Quit tray icon",
         "language": "Language", "cancel": "Cancel task", "dismiss": "Dismiss", "empty": "No Claude Code sessions yet",
         "connection_failed": "Monitor connection failed", "tooltip": "CC Session Monitor", "instruction": "Prompt",
-        "tool": "Tool", "result": "Result", "error": "Error", "status": "Status", "progress": "Progress", "event": "Event",
+        "tool": "Tool", "result": "Result", "error": "Error", "status": "Status", "progress": "Progress", "heartbeat": "Still running", "event": "Event",
         "cancelled_text": "Task cancelled", "failed_text": "Task failed", "finished": "finished", "thinking": "Model is thinking", "waiting_output": "no new output yet",
         "starting": "Starting", "running": "Running", "generating": "Generating", "tool_running": "Using tool",
         "waiting_permission": "Waiting for permission", "cancelling": "Cancelling", "completed": "Completed", "failed": "Failed",
@@ -134,6 +134,7 @@ class MonitorWindow(Gtk.Window):
         self.last_output_label = None
         self.last_output_text = ""
         self.last_output_mode = ""
+        self.heartbeat_header = None
         self.set_default_size(470, 620)
         self.set_type_hint(Gdk.WindowTypeHint.UTILITY)
         self.set_keep_above(True)
@@ -400,8 +401,17 @@ class MonitorWindow(Gtk.Window):
 
     def _append_event(self, event):
         event_type = event.get("type", "")
+        if event_type == "run_started":
+            self.heartbeat_header = None
         if event_type in HIDDEN_EVENTS:
             return
+        if event_type == "progress_snapshot":
+            if self.heartbeat_header is None:
+                self.heartbeat_header = self._append_generic(event, "progress", self.t("heartbeat"))
+            else:
+                self.heartbeat_header.time_label.set_text(self._stamp(event))
+            return
+        self.heartbeat_header = None
         data = event.get("data", {})
         text = data.get("text") or data.get("prompt") or data.get("output") or data.get("result") or data.get("error") or data.get("summary") or data.get("status") or ""
         if event_type in {"external_message", "text_delta", "assistant_message"}:
@@ -442,10 +452,6 @@ class MonitorWindow(Gtk.Window):
         if event_type == "run_cancelled":
             self._append_generic(event, "status", self.t("cancelled_text"))
             return
-        if event_type == "progress_snapshot":
-            if text:
-                self._append_generic(event, "progress", text)
-            return
         if text:
             self._append_generic(event, "event", text)
 
@@ -479,11 +485,21 @@ class MonitorWindow(Gtk.Window):
 
     def _append_tool(self, event):
         data = event.get("data", {})
+        existing = self.tool_cards.get(data.get("toolUseId"))
+        if existing is not None:
+            tool = data.get("tool") or existing["tool"]
+            summary = data.get("summary")
+            if summary and summary != tool and not existing["detail"]:
+                existing["tool"] = tool
+                existing["detail"] = str(summary)
+                existing["summary_label"].set_text(f"{tool} · {summary}")
+            return
         self.tool_counter += 1
         tool_id = data.get("toolUseId") or f"tool-{self.tool_counter}"
         tool = data.get("tool") or self.t("tool")
         summary = data.get("summary")
-        summary_text = tool + (f" · {summary}" if summary and summary != tool else "")
+        detail = str(summary) if summary and summary != tool else ""
+        summary_text = tool + (f" · {detail}" if detail else "")
         card, box = self._card("tool-card")
         header = self._header("🔧", "tool", self._stamp(event), summary=summary_text, show_badge=False)
         box.pack_start(header, False, False, 0)
@@ -498,7 +514,7 @@ class MonitorWindow(Gtk.Window):
         result_label = self._markdown_label("")
         result_box.pack_start(result_label, False, False, 0)
         box.pack_start(result, False, False, 0)
-        record = {"card": card, "result": result, "result_header": result_header, "label": result_label, "summary_label": header.summary_label, "expanded": False, "completed": False}
+        record = {"card": card, "result": result, "result_header": result_header, "label": result_label, "summary_label": header.summary_label, "tool": tool, "detail": detail, "expanded": False, "completed": False}
 
         def toggle(*_):
             record["expanded"] = not record["expanded"]
@@ -548,9 +564,11 @@ class MonitorWindow(Gtk.Window):
 
     def _append_generic(self, event, key, text, css_class=""):
         card, box = self._card(css_class)
-        box.pack_start(self._header("", key, self._stamp(event)), False, False, 0)
+        header = self._header("", key, self._stamp(event))
+        box.pack_start(header, False, False, 0)
         box.pack_start(self._markdown_label(text), False, False, 0)
         self.detail.pack_start(card, False, False, 0)
+        return header
 
     def _card(self, css_class=""):
         card = Gtk.EventBox()
@@ -621,6 +639,7 @@ class MonitorWindow(Gtk.Window):
         self.last_output_label = None
         self.last_output_text = ""
         self.last_output_mode = ""
+        self.heartbeat_header = None
 
     def _rebuild_detail(self):
         self._clear_detail()

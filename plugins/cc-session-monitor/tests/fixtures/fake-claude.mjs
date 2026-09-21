@@ -14,6 +14,14 @@ emit({ type: "stream_event", event: { type: "content_block_delta", delta: { type
 emit({ type: "assistant", message: { content: [{ type: "tool_use", id: "tool-1", name: "Read", input: { file_path: "README.md" } }] } });
 emit({ type: "user", message: { content: [{ type: "tool_result", tool_use_id: "tool-1", content: "file contents" }] } });
 
+if (prompt.includes("IDLE_HEARTBEAT") || prompt.includes("ACTIVE_NO_HEARTBEAT")) {
+  for (let index = 0; index < 4; index += 1) {
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    emit({ type: "stream_event", event: { type: "content_block_delta", delta: { type: "text_delta", text: `update ${index}` } } });
+  }
+  if (prompt.includes("IDLE_HEARTBEAT")) await new Promise((resolve) => setTimeout(resolve, 70));
+}
+
 if (prompt.includes("FAIL")) {
   emit({ type: "result", is_error: true, terminal_reason: "api_error", result: "simulated failure", duration_ms: 20, total_cost_usd: 0 });
   process.exitCode = 1;
